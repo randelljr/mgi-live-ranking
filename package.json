@@ -1,0 +1,14 @@
+{
+  "name": "mgi-live-ranking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "install:browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "playwright": "^1.51.1"
+  }
+}

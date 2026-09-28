@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MGI Group B Live Ranking</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:#f6f7f9;color:#111827}.wrap{max-width:1000px;margin:auto;padding:24px}.muted{color:#6b7280}.head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px}.stat{text-align:center}.tablewrap{overflow-x:auto}.tablewrap.card{padding:0}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px;border-bottom:1px solid #eee;text-align:right}th:first-child,th:nth-child(2),td:first-child,td:nth-child(2){text-align:left}.top2{background:#ecfdf5}.points{font-weight:800}.btn{padding:10px 14px;border:1px solid #d1d5db;border-radius:10px;background:#fff;font-size:15px;cursor:pointer}.btn.primary{background:#111827;color:#fff}.grid{display:grid;grid-template-columns:1fr repeat(3,minmax(110px,1fr)) auto;gap:8px}.admin{margin-top:16px}input,select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-size:16px;box-sizing:border-box}@media(max-width:700px){.stats{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}.grid button{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div><div class="muted">Country's Power of the Year · Round 2</div><h1>Group B — Live Ranking</h1><div class="muted">Puntos = Likes + Comentarios + (Reposts × 2)</div></div>
+    <button id="refresh" class="btn primary">Actualizar pantalla</button>
+  </div>
+  <div class="stats">
+    <div class="card stat"><div class="muted">Líder</div><div id="leader" style="font-size:24px;font-weight:800">—</div></div>
+    <div class="card stat"><div class="muted">2.º lugar</div><div id="second" style="font-size:24px;font-weight:800">—</div></div>
+    <div class="card stat"><div class="muted">Diferencia</div><div id="gap" style="font-size:24px;font-weight:800">—</div></div>
+  </div>
+  <div class="tablewrap card"><table><thead><tr><th>#</th><th>País</th><th>Likes</th><th>Comentarios</th><th>Reposts</th><th>Puntos</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  <div id="updated" class="muted" style="margin-top:10px">Cargando…</div>
+  <div class="card admin">
+    <strong>Corrección manual</strong>
+    <p class="muted">Respaldo por si Instagram no expone algún contador.</p>
+    <div class="grid">
+      <select id="country"></select>
+      <input id="likes" inputmode="numeric" placeholder="Likes">
+      <input id="comments" inputmode="numeric" placeholder="Comentarios">
+      <input id="reposts" inputmode="numeric" placeholder="Reposts">
+      <button id="save" class="btn">Guardar</button>
+    </div>
+    <input id="key" type="password" placeholder="ADMIN_KEY" style="margin-top:8px">
+    <div id="msg" class="muted" style="margin-top:8px"></div>
+  </div>
+</div>
+<script>
+const fmt=n=>Number(n||0).toLocaleString('es-EC');
+async function load(){
+  const r=await fetch('/api/ranking'); const d=await r.json(); const rows=d.rows||[];
+  document.querySelector('#tbody').innerHTML=rows.map(x=>`<tr class="${x.position<=2?'top2':''}"><td><b>${x.position}</b></td><td><b>${x.country}</b></td><td>${fmt(x.likes)}</td><td>${fmt(x.comments)}</td><td>${fmt(x.reposts)}</td><td class="points">${fmt(x.points)}</td></tr>`).join('');
+  document.querySelector('#leader').textContent=rows[0]?.country||'—';
+  document.querySelector('#second').textContent=rows[1]?.country||'—';
+  document.querySelector('#gap').textContent=rows[1]?fmt(rows[0].points-rows[1].points):'—';
+  document.querySelector('#updated').textContent='Última actualización: '+(d.updatedAt?new Date(d.updatedAt).toLocaleString('es-EC'):'datos iniciales');
+  document.querySelector('#country').innerHTML=rows.map(x=>`<option>${x.country}</option>`).join('');
+}
+document.querySelector('#refresh').addEventListener('click',load);
+document.querySelector('#save').addEventListener('click',async()=>{
+  const body={country:document.querySelector('#country').value};
+  for(const id of ['likes','comments','reposts']){const v=document.querySelector('#'+id).value.trim(); if(v!=='') body[id]=Number(v)}
+  const r=await fetch('/api/admin/manual',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':document.querySelector('#key').value},body:JSON.stringify(body)});
+  document.querySelector('#msg').textContent=r.ok?'Guardado.':'No se pudo guardar.';
+  if(r.ok) load();
+});
+load(); setInterval(load,30000);
+</script>
+</body>
+</html>
