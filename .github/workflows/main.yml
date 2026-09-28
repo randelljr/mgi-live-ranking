@@ -1,0 +1,205 @@
+name: MGI Live Ranking
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: mgi-live-ranking
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Instalar navegador
+        run: npx playwright install --with-deps chromium
+
+      - name: Leer publicaciones de Instagram
+        env:
+          ADMIN_KEY: github-action
+        run: |
+          node server.js > /tmp/mgi.log 2>&1 &
+          echo $! > /tmp/mgi.pid
+
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/api/ranking > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS -X POST \
+            http://127.0.0.1:3000/api/admin/scrape \
+            -H "x-admin-key: github-action" \
+            -H "Content-Type: application/json" \
+            -d "{}"
+
+          kill $(cat /tmp/mgi.pid) || true
+
+      - name: Crear página pública
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const latest = JSON.parse(fs.readFileSync("data/latest.json", "utf8"));
+          const history = JSON.parse(fs.readFileSync("data/history.json", "utf8"));
+
+          const points = r =>
+            Number(r.likes || 0) +
+            Number(r.comments || 0) +
+            Number(r.reposts || 0) * 2;
+
+          const rows = latest.rows
+            .map(r => ({ ...r, points: points(r) }))
+            .sort((a,b) => b.points - a.points);
+
+          const previous =
+            history.length > 1 ? history[history.length - 2] : null;
+
+          const previousMap = Object.fromEntries(
+            (previous?.rows || []).map(r => [
+              r.country,
+              points(r)
+            ])
+          );
+
+          const data = rows.map((r, i) => ({
+            ...r,
+            position: i + 1,
+            change: r.points - (previousMap[r.country] ?? r.points)
+          }));
+
+          const html = `<!doctype html>
+          <html lang="es">
+          <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>MGI Group B — Live Ranking</title>
+          <style>
+          body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b0e14;color:#fff;margin:0}
+          .wrap{max-width:950px;margin:auto;padding:24px}
+          h1{margin-bottom:4px}
+          .muted{color:#9ca3af}
+          .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}
+          .card{background:#151a23;border:1px solid #252c39;border-radius:16px;padding:18px;text-align:center}
+          .big{font-size:24px;font-weight:800;margin-top:6px}
+          table{width:100%;border-collapse:collapse;background:#151a23;border-radius:16px;overflow:hidden}
+          th,td{padding:13px;border-bottom:1px solid #252c39;text-align:right}
+          th:first-child,th:nth-child(2),td:first-child,td:nth-child(2){text-align:left}
+          .top2{background:#12271c}
+          .pts{font-weight:800}
+          .up{color:#4ade80}.down{color:#fb7185}.same{color:#9ca3af}
+          @media(max-width:700px){
+            .cards{grid-template-columns:1fr}
+            .scroll{overflow-x:auto}
+            table{min-width:720px}
+          }
+          </style>
+          </head>
+          <body>
+          <div class="wrap">
+            <div class="muted">Country's Power of the Year · Round 2</div>
+            <h1>Group B — Live Ranking</h1>
+            <div class="muted">Like = 1 · Comentario = 1 · Repost = 2</div>
+
+            <div class="cards">
+              <div class="card">
+                <div class="muted">Líder</div>
+                <div class="big">${data[0]?.country || "—"}</div>
+              </div>
+              <div class="card">
+                <div class="muted">Segundo lugar</div>
+                <div class="big">${data[1]?.country || "—"}</div>
+              </div>
+              <div class="card">
+                <div class="muted">Diferencia</div>
+                <div class="big">${data[1] ? (data[0].points-data[1].points).toLocaleString("es-EC") : "—"}</div>
+              </div>
+            </div>
+
+            <div class="scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>País</th>
+                    <th>Likes</th>
+                    <th>Comentarios</th>
+                    <th>Reposts</th>
+                    <th>Puntos</th>
+                    <th>Último cambio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.map(r => `
+                    <tr class="${r.position <= 2 ? "top2" : ""}">
+                      <td><b>${r.position}</b></td>
+                      <td><b>${r.country}</b></td>
+                      <td>${Number(r.likes).toLocaleString("es-EC")}</td>
+                      <td>${Number(r.comments).toLocaleString("es-EC")}</td>
+                      <td>${Number(r.reposts).toLocaleString("es-EC")}</td>
+                      <td class="pts">${r.points.toLocaleString("es-EC")}</td>
+                      <td class="${r.change>0?"up":r.change<0?"down":"same"}">
+                        ${r.change>0?"+":""}${r.change.toLocaleString("es-EC")}
+                      </td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+
+            <p class="muted">
+              Última actualización:
+              ${latest.updatedAt
+                ? new Date(latest.updatedAt).toLocaleString("es-EC")
+                : "sin actualización automática todavía"}
+            </p>
+
+            <p class="muted">
+              Historial guardado: ${history.length} cortes.
+            </p>
+          </div>
+          </body>
+          </html>`;
+
+          fs.mkdirSync("public", { recursive: true });
+          fs.writeFileSync("public/index.html", html);
+          NODE
+
+      - name: Guardar historial
+        run: |
+          git config user.name "MGI Ranking Bot"
+          git config user.email "actions@github.com"
+          git add data/latest.json data/history.json
+          git diff --cached --quiet || git commit -m "Actualizar ranking"
+          git push
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Preparar página
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Publicar página
+        uses: actions/deploy-pages@v4
