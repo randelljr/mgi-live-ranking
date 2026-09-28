@@ -1,12 +1,6 @@
 {
-  "updatedAt": null,
+  "updatedAt": "2026-09-28T14:42:42.321Z",
   "rows": [
-    {
-      "country": "Pakistan",
-      "likes": 181000,
-      "comments": 10600,
-      "reposts": 63600
-    },
     {
       "country": "Ecuador",
       "likes": 68400,
@@ -14,16 +8,16 @@
       "reposts": 20200
     },
     {
-      "country": "Malaysia",
-      "likes": 40800,
-      "comments": 22300,
-      "reposts": 15700
+      "country": "Pakistan",
+      "likes": 181000,
+      "comments": 10600,
+      "reposts": 63600
     },
     {
-      "country": "Laos",
-      "likes": 3647,
-      "comments": 65300,
-      "reposts": 983
+      "country": "Colombia",
+      "likes": 5139,
+      "comments": 4514,
+      "reposts": 821
     },
     {
       "country": "Cuba",
@@ -38,22 +32,28 @@
       "reposts": 1122
     },
     {
+      "country": "Romania",
+      "likes": 3556,
+      "comments": 3077,
+      "reposts": 760
+    },
+    {
       "country": "Nigeria",
       "likes": 11300,
       "comments": 9843,
       "reposts": 561
     },
     {
-      "country": "Colombia",
-      "likes": 5139,
-      "comments": 4514,
-      "reposts": 821
+      "country": "Malaysia",
+      "likes": 40800,
+      "comments": 22300,
+      "reposts": 15700
     },
     {
-      "country": "Romania",
-      "likes": 3556,
-      "comments": 3077,
-      "reposts": 760
+      "country": "Laos",
+      "likes": 3647,
+      "comments": 65300,
+      "reposts": 983
     },
     {
       "country": "France",
